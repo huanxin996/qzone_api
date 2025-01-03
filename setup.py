@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="qzone_api",
-    version="0.0.4",
+    version="0.0.5",
     author="Huan Xin",
     author_email="mc.xiaolang@foxmail.com",
     description="QQ空间API封装",

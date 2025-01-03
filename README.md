@@ -2,7 +2,7 @@
 <!-- markdownlint-disable MD033 MD036 MD041 -->
 
 <p align="center">
-  <a href="https://huanxinbot.com/"><img src="https://raw.githubusercontent.com/huanxin996/nonebot_plugin_hx-yinying/main/.venv/hx_img.png" width="200" height="200" alt="这里放一张"></a>
+  <a href="https://huanxinbot.com/"><img src="https://raw.githubusercontent.com/huanxin996/nonebot_plugin_hx-yinying/main/.venv/hx_img.png" width="200" height="200" alt="这里放一张oc饭🤤"></a>
 </p>
 
 <div align="center">
@@ -29,6 +29,7 @@ pip install qzone-api
 - 向指定动态下评论(文本)
 - 发送文本动态
 - 删除指定动态(需为自身)
+- 转发指定动态
 
 ## 使用方式  
 

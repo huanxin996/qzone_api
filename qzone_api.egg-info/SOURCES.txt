@@ -1,3 +1,4 @@
+LICENSE
 README.md
 setup.py
 qzone_api/__init__.py

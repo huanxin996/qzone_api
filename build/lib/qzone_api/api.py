@@ -11,6 +11,7 @@ class QzoneApi:
         self.send_url = "https://user.qzone.qq.com/proxy/domain/taotao.qzone.qq.com/cgi-bin/emotion_cgi_publish_v6"
         self.dell_url = "https://user.qzone.qq.com/proxy/domain/taotao.qzone.qq.com/cgi-bin/emotion_cgi_delete_v6"
         self.send_comments_url = "https://user.qzone.qq.com/proxy/domain/taotao.qzone.qq.com/cgi-bin/emotion_cgi_re_feeds"
+        self.forward_url = "https://user.qzone.qq.com/proxy/domain/taotao.qzone.qq.com/cgi-bin/emotion_cgi_forward_v6"
         #拼尽全力无法战胜上传图像
         self.test_url = "https://up.qzone.qq.com/cgi-bin/upload/cgi_upload_image?g_tk=781338046&"
     
@@ -67,11 +68,11 @@ class QzoneApi:
             logger.error(f"请求异常: {e}")
             return None
 
-    async def get_zone(self, target_qq: str, g_tk: str, cookies: str) -> Optional[Dict[str, Any]]:
+    async def get_zone(self, target_qq: str, g_tk: str, cookies: str,page:int=1,count:int=10,begintime:int=0) -> Optional[Dict[str, Any]]:
         """获取空间动态"""
         try:
             # 获取动态参数
-            params = get_feeds(target_qq, g_tk)
+            params = get_feeds(target_qq, g_tk,page=page,count=count,begintime=begintime)
             return await self._make_get_request(self.user_url, params, cookies)
         except Exception as e:
             logger.error(f"获取空间动态失败: {e}")
@@ -108,7 +109,7 @@ class QzoneApi:
         """发送评论"""
         try:
             params = get_send_comment(target_qq,uin, content,fid)
-            return await self._make_post_request(url=f"{self.send_url}?&g_tk={g_tk}", data=params, cookies=cookies)
+            return await self._make_post_request(url=f"{self.send_comments_url}?&g_tk={g_tk}", data=params, cookies=cookies)
         except Exception as e:
             logger.error(f"发送说说失败: {e}")
             return None
@@ -120,4 +121,13 @@ class QzoneApi:
             return await self._make_post_request(url=f"{self.dell_url}?&g_tk={g_tk}", data=params, cookies=cookies)
         except Exception as e:
             logger.error(f"删除说说失败: {e}")
+            return None
+        
+    async def forward_zone(self, target_qq: int,opuin:int, tid: str,connect:str, cookies: str,g_tk:str) -> Optional[Dict[str, Any]]:
+        """转发说说"""
+        try:
+            params = get_forward_zone(target_qq, opuin,tid,connect)
+            return await self._make_post_request(url=f"{self.forward_url}?&g_tk={g_tk}", data=params, cookies=cookies)
+        except Exception as e:
+            logger.error(f"转发说说失败: {e}")
             return None

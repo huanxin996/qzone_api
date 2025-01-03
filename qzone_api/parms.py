@@ -67,7 +67,7 @@ def get_send_zone(target_qq:int,content:str) -> Dict[str, Any]:
         "pic_template": "",  # 图片模板
         "richtype": "",  # 富文本类型
         "richval": "",  # 富文本值
-        "hostuin": target_qq,  # 目标QQ
+        "hostuin": target_qq,  # 操作QQ
         "who": 1,  # 说说类型
         "con": content,  # 说说内容
         "feedversion": 1,  # 说说版本
@@ -84,8 +84,8 @@ def get_send_zone(target_qq:int,content:str) -> Dict[str, Any]:
 def get_send_comment(opuin: int,uin:int, content: str, fid: str) -> Dict[str, Any]:
     """发送说说评论参数解析"""
     parms = {
-        "uin": opuin,  # 操作QQ
-        "hostUin": uin,  # 目标QQ
+        "uin": uin,  # 目标QQ
+        "hostUin": opuin,  # 操作QQ
         "feedsType": 100,  # 说说类型
         "inCharset": "utf-8",  # 字符集
         "outCharset": "utf-8",  # 字符集
@@ -105,12 +105,30 @@ def get_del_zone(uin: int, fid: str,curkey:str,timestamp:int) -> Dict[str, Any]:
         "uin": uin,  # 目标QQ
         "topicId": fid,  # 说说ID
         "feedsType": 0,  # 说说类型
-        "feedsFlag": 0,  # 操作QQ
+        "feedsFlag": 0,  # 说说标记
         "feedsKey": curkey,  # 当前key
         "feedsAppid": 311,
         "feedsTime": timestamp,  # 时间戳
         "fupdate": 1,  # 更新标记
         "ref": "feeds",
         "qzreferrer": f"https://user.qzone.qq.com/{uin}",
+    }
+    return parms
+
+def get_forward_zone(uin: int,opuin:int, tid: str,connent:str) -> Dict[str, Any]:
+    """转发说说参数解析"""
+    parms = {
+        "t1_uin": uin,  # 目标QQ
+        "t1_source": 1,  # 来源
+        "tid": tid,  # 说说ID
+        "signin": 0,  # 签名
+        "con": connent,  # 内容
+        "with_cmt": 0,  # 评论
+        "fwdToWeibo": 0,  # 转发到微博
+        "forward_source": 2,  # 转发来源
+        "code_version": 1,  # 版本
+        "format": "fs",  # 返回格式
+        "hostuin": opuin,  # 操作QQ
+        "qzreferrer": f"https://user.qzone.qq.com/{uin}"
     }
     return parms
