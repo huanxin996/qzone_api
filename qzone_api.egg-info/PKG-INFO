@@ -1,3 +1,15 @@
+Metadata-Version: 2.1
+Name: qzone-api
+Version: 0.0.4
+Summary: QQ空间API封装
+Home-page: https://github.com/huanxin996/qzone_api
+Author: Huan Xin
+Author-email: mc.xiaolang@foxmail.com
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Description-Content-Type: text/markdown
+
 
 <!-- markdownlint-disable MD033 MD036 MD041 -->
 

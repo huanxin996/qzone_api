@@ -58,3 +58,59 @@ def get_self_zone(target_qq: str, g_tk: str,  pos: int = 0, num: int = 20) -> Di
         "need_private_comment": 1
     }
     return params
+
+def get_send_zone(target_qq:int,content:str) -> Dict[str, Any]:
+    """发送说说参数解析"""
+    parms = {
+        "syn_tweet_verson": 1,  # 说说版本
+        "paramstr": 1,  # 参数
+        "pic_template": "",  # 图片模板
+        "richtype": "",  # 富文本类型
+        "richval": "",  # 富文本值
+        "hostuin": target_qq,  # 目标QQ
+        "who": 1,  # 说说类型
+        "con": content,  # 说说内容
+        "feedversion": 1,  # 说说版本
+        "ver": 1,  # 版本
+        "ugc_right": 1,  # 权限
+        "to_sign": 0,  # 签名
+        "code_version": 1,
+        "format": "fs",
+        "qzreferrer": f"https://user.qzone.qq.com/{target_qq}"
+    }
+    return parms
+
+
+def get_send_comment(opuin: int,uin:int, content: str, fid: str) -> Dict[str, Any]:
+    """发送说说评论参数解析"""
+    parms = {
+        "uin": opuin,  # 操作QQ
+        "hostUin": uin,  # 目标QQ
+        "feedsType": 100,  # 说说类型
+        "inCharset": "utf-8",  # 字符集
+        "outCharset": "utf-8",  # 字符集
+        "topicId": fid,  # 说说ID
+        "plat": "qzone",  # 平台
+        "source": "ic",  # 来源
+        "platformid": 50,  # 平台id
+        "format": "fs",  # 返回格式
+        "ref": "feeds",  # 引用
+        "content": content,  # 评论内容
+    }
+    return parms
+
+def get_del_zone(uin: int, fid: str,curkey:str,timestamp:int) -> Dict[str, Any]:
+    """删除说说参数解析"""
+    parms = {
+        "uin": uin,  # 目标QQ
+        "topicId": fid,  # 说说ID
+        "feedsType": 0,  # 说说类型
+        "feedsFlag": 0,  # 操作QQ
+        "feedsKey": curkey,  # 当前key
+        "feedsAppid": 311,
+        "feedsTime": timestamp,  # 时间戳
+        "fupdate": 1,  # 更新标记
+        "ref": "feeds",
+        "qzreferrer": f"https://user.qzone.qq.com/{uin}",
+    }
+    return parms

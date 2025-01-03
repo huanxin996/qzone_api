@@ -1,14 +1,18 @@
 import aiohttp,json,time
 from typing import Dict, Any, Optional
 from loguru import logger
-from .parms import like_feed,get_feeds,get_self_zone
+from .parms import *
 
 class QzoneApi:
     def __init__(self):
         self.self_url = "https://user.qzone.qq.com/proxy/domain/taotao.qq.com/cgi-bin/emotion_cgi_msglist_v6"
         self.user_url = "https://user.qzone.qq.com/proxy/domain/ic2.qzone.qq.com/cgi-bin/feeds/feeds3_html_more"
         self.dolike_url = "https://user.qzone.qq.com/proxy/domain/w.qzone.qq.com/cgi-bin/likes/internal_dolike_app"
-        self.test_url = "https://user.qzone.qq.com/proxy/domain/statistic.qzone.qq.com/cgi-bin/feeds2_oz"
+        self.send_url = "https://user.qzone.qq.com/proxy/domain/taotao.qzone.qq.com/cgi-bin/emotion_cgi_publish_v6"
+        self.dell_url = "https://user.qzone.qq.com/proxy/domain/taotao.qzone.qq.com/cgi-bin/emotion_cgi_delete_v6"
+        self.send_comments_url = "https://user.qzone.qq.com/proxy/domain/taotao.qzone.qq.com/cgi-bin/emotion_cgi_re_feeds"
+        #拼尽全力无法战胜上传图像
+        self.test_url = "https://up.qzone.qq.com/cgi-bin/upload/cgi_upload_image?g_tk=781338046&"
     
 
     async def _make_post_request(self, url: str, data: Dict[str, Any], cookies: str, content_type: str = 'application/x-www-form-urlencoded') -> Optional[Dict[str, Any]]:
@@ -86,7 +90,34 @@ class QzoneApi:
         """点赞指定说说"""
         try:
             params = like_feed(opuin=target_qq,fid=fid, cur_key=cur_key,uni_key=uni_key)
-            return await self._make_post_request(url=f"{self.dolike_url}?g_tk={g_tk}", data=params, cookies=cookies)
+            return await self._make_post_request(url=f"{self.dolike_url}?&g_tk={g_tk}", data=params, cookies=cookies)
         except Exception as e:
             logger.error(f"尝试点赞时失败: {e}")
+            return None
+
+    async def send_zone(self, target_qq: str, content: str, cookies: str,g_tk:str) -> Optional[Dict[str, Any]]:
+        """发送文本说说"""
+        try:
+            params = get_send_zone(target_qq, content)
+            return await self._make_post_request(url=f"{self.send_url}?&g_tk={g_tk}", data=params, cookies=cookies)
+        except Exception as e:
+            logger.error(f"发送说说失败: {e}")
+            return None
+    
+    async def send_comments(self, target_qq: int,uin:int, content: str, cookies: str,g_tk:str,fid:str) -> Optional[Dict[str, Any]]:
+        """发送评论"""
+        try:
+            params = get_send_comment(target_qq,uin, content,fid)
+            return await self._make_post_request(url=f"{self.send_url}?&g_tk={g_tk}", data=params, cookies=cookies)
+        except Exception as e:
+            logger.error(f"发送说说失败: {e}")
+            return None
+
+    async def del_zone(self, target_qq: str, fid: str, cookies: str,g_tk:str,curkey:str,timestamp:int) -> Optional[Dict[str, Any]]:
+        """删除说说"""
+        try:
+            params = get_del_zone(target_qq, fid,curkey,timestamp)
+            return await self._make_post_request(url=f"{self.dell_url}?&g_tk={g_tk}", data=params, cookies=cookies)
+        except Exception as e:
+            logger.error(f"删除说说失败: {e}")
             return None
