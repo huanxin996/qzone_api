@@ -2,7 +2,7 @@ import time
 from typing import Dict, Any
 
 
-def like_feed(opuin:int,appid: int=311, fid: str =None, cur_key: str=None,uni_key:str=None) -> dict:
+def like_feed(opuin:int,appid: int=311, fid: str=None, cur_key: str=None,uni_key:str=None) -> dict:
     """点赞QQ空间动态参数解析"""
     params = {
         'qzreferrer': f'https://user.qzone.qq.com/{opuin}',  # 来源

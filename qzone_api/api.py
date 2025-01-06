@@ -1,4 +1,4 @@
-import aiohttp,json,time
+import aiohttp,json,re
 from typing import Dict, Any, Optional
 from loguru import logger
 from .parms import *
@@ -32,14 +32,23 @@ class QzoneApi:
                 async with session.post(url, data=data, headers=headers) as response:
                     if response.status == 200:
                         content = await response.text()
-                        logger.debug(f"POST响应内容: {content[:100]}")     
-                        try:
-                            return await response.json()
-                        except json.JSONDecodeError as e:
-                            logger.error(f"JSON解析失败: {e},请自行处理原数据")
-                            return content
+                        logger.debug(f"POST响应内容: {content[:100]}")
+                        if 'text/html' in response.headers.get('Content-Type', ''):
+                            match = re.search(r'({.*})', content)
+                            if match:
+                                try:
+                                    return json.loads(match.group(1))
+                                except json.JSONDecodeError:
+                                    pass
+                            match = re.search(r'_Callback\((.*)\);', content)
+                            if match:
+                                try:
+                                    return json.loads(match.group(1))
+                                except json.JSONDecodeError:
+                                    pass
+                        return content
                     logger.error(f"POST请求失败: {response.status}")
-                    return None    
+                    return None  
         except aiohttp.ClientError as e:
             logger.error(f"POST请求异常: {e}")
             return None
@@ -87,10 +96,11 @@ class QzoneApi:
             logger.error(f"获取说说列表失败: {e}")
             return None
         
-    async def zanzone(self, target_qq: str, g_tk: str, fid: int, cur_key: str,uni_key:str,cookies: str) -> Optional[Dict[str, Any]]:
+    async def zanzone(self, target_qq: int, g_tk: str, fid: int, cur_key: str,uni_key:str,cookies: str) -> Optional[Dict[str, Any]]:
         """点赞指定说说"""
         try:
             params = like_feed(opuin=target_qq,fid=fid, cur_key=cur_key,uni_key=uni_key)
+            logger.info(params)
             return await self._make_post_request(url=f"{self.dolike_url}?&g_tk={g_tk}", data=params, cookies=cookies)
         except Exception as e:
             logger.error(f"尝试点赞时失败: {e}")
