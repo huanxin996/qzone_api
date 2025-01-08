@@ -1,53 +1,56 @@
-FROM php:7.4-apache
+FROM typecho:0.3
 
-# 安装扩展和工具
+# 安装PHP扩展和依赖
 RUN apt-get update && apt-get install -y \
-    libfreetype6-dev \
-    libjpeg62-turbo-dev \
-    libpng-dev \
-    && rm -rf /var/lib/apt/lists/* \
-    && docker-php-ext-install -j$(nproc) mysqli pdo_mysql
+        libcurl4-openssl-dev \
+        libssl-dev \
+        libz-dev \
+        libzip-dev \
+        libonig-dev \
+        default-mysql-client \
+    && docker-php-ext-install \
+        curl \
+        mbstring \
+        json \
+        zip \
+        mysqli \
+        pdo_mysql \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-# PHP配置
-RUN { \
-    echo 'memory_limit = 256M'; \
-    echo 'upload_max_filesize = 100M'; \
-    echo 'post_max_size = 100M'; \
-    echo 'max_execution_time = 300'; \
-    } > /usr/local/etc/php/conf.d/custom.ini
+# 启用Apache模块
+RUN a2enmod ssl && a2enmod rewrite
 
-# Apache配置
-RUN a2enmod rewrite \
-    && echo "ServerName localhost" > /etc/apache2/conf-available/servername.conf \
-    && a2enconf servername
+# 创建SSL目录
+RUN mkdir -p /var/www/html/ssl && \
+    chown -R www-data:www-data /var/www/html
 
-# 环境变量设置
-ENV APACHE_RUN_USER=www-data \
-    APACHE_RUN_GROUP=www-data \
-    APACHE_LOG_DIR=/var/log/apache2 \
-    APACHE_LOCK_DIR=/var/lock/apache2 \
-    APACHE_PID_FILE=/var/run/apache2/apache2.pid \
-    APACHE_RUN_DIR=/var/run/apache2
+# 配置Apache虚拟主机
+RUN echo '<VirtualHost *:80>\n\
+    ServerAdmin webmaster@localhost\n\
+    DocumentRoot /var/www/html\n\
+    RewriteEngine On\n\
+    RewriteCond %{HTTPS} off\n\
+    RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]\n\
+</VirtualHost>\n\
+\n\
+<VirtualHost *:443>\n\
+    ServerAdmin webmaster@localhost\n\
+    DocumentRoot /var/www/html\n\
+    SSLEngine on\n\
+    SSLCertificateFile /var/www/html/ssl/cert.crt\n\
+    SSLCertificateKeyFile /var/www/html/ssl/cert.key\n\
+    ErrorLog ${APACHE_LOG_DIR}/error.log\n\
+    CustomLog ${APACHE_LOG_DIR}/access.log combined\n\
+    <Directory /var/www/html>\n\
+        Options Indexes FollowSymLinks\n\
+        AllowOverride All\n\
+        Require all granted\n\
+    </Directory>\n\
+</VirtualHost>' > /etc/apache2/sites-available/000-default.conf
 
-# 创建必要目录和设置权限
-RUN mkdir -p /var/run/apache2 /var/lock/apache2 \
-    && chown -R www-data:www-data /var/run/apache2 /var/lock/apache2 /var/www/html
+# 启用SSL站点
+RUN ln -sf /etc/apache2/sites-available/000-default.conf /etc/apache2/sites-enabled/000-default.conf
 
+# 设置工作目录
 WORKDIR /var/www/html
-
-# 使用supervisord管理进程
-RUN apt-get update && apt-get install -y supervisor \
-    && mkdir -p /var/log/supervisor \
-    && { \
-        echo '[supervisord]'; \
-        echo 'nodaemon=true'; \
-        echo '[program:apache2]'; \
-        echo 'command=apache2-foreground'; \
-        echo 'stdout_logfile=/dev/stdout'; \
-        echo 'stdout_logfile_maxbytes=0'; \
-        echo 'stderr_logfile=/dev/stderr'; \
-        echo 'stderr_logfile_maxbytes=0'; \
-    } > /etc/supervisor/conf.d/apache2.conf
-
-
-#自用的博客搭建。

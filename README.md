@@ -36,4 +36,4 @@ pip install qzone-api
 utils里是示例  
 parms 是构建参数  
 api 里是api调用方法，也可以自己构建  
-本人代码水平有限，写的很简单,毕竟主要是自用，有问题请提iss  
+本人代码水平有限，写的很简单,毕竟主要是自用，有问题请提issue  
