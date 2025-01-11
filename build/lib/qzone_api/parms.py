@@ -20,7 +20,7 @@ def like_feed(opuin:int,appid: int=311, fid: str=None, cur_key: str=None,uni_key
     }
     return params
 
-def get_feeds(uin: str, g_tk: str, page: int = 1, count: int = 10,begintime:int=0) -> Dict[str, Any]:
+def get_feeds(uin: int, g_tk: int, page: int = 1, count: int = 10,begintime:int=0) -> Dict[str, Any]:
     """好友动态说说参数解析"""
     params = {
     "uin": uin,              # QQ号
@@ -42,7 +42,7 @@ def get_feeds(uin: str, g_tk: str, page: int = 1, count: int = 10,begintime:int=
     }
     return params
 
-def get_self_zone(target_qq: str, g_tk: str,  pos: int = 0, num: int = 20) -> Dict[str, Any]:
+def get_self_zone(target_qq: int, g_tk: int,  pos: int = 0, num: int = 20) -> Dict[str, Any]:
     """获取指定QQ的说说数据"""
     params = {
         "uin": target_qq,          # 目标QQ

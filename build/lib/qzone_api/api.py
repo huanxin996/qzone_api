@@ -2,6 +2,7 @@ import aiohttp,json,re
 from typing import Dict, Any, Optional
 from loguru import logger
 from .parms import *
+from .utilts import *
 
 class QzoneApi:
     def __init__(self):
@@ -13,7 +14,7 @@ class QzoneApi:
         self.send_comments_url = "https://user.qzone.qq.com/proxy/domain/taotao.qzone.qq.com/cgi-bin/emotion_cgi_re_feeds"
         self.forward_url = "https://user.qzone.qq.com/proxy/domain/taotao.qzone.qq.com/cgi-bin/emotion_cgi_forward_v6"
         #拼尽全力无法战胜上传图像
-        self.test_url = "https://up.qzone.qq.com/cgi-bin/upload/cgi_upload_image?g_tk=781338046&"
+        self.test_url = "https://up.qzone.qq.com/cgi-bin/upload/cgi_upload_image"
     
 
     async def _make_post_request(self, url: str, data: Dict[str, Any], cookies: str, content_type: str = 'application/x-www-form-urlencoded') -> Optional[Dict[str, Any]]:
@@ -77,7 +78,7 @@ class QzoneApi:
             logger.error(f"请求异常: {e}")
             return None
 
-    async def get_zone(self, target_qq: str, g_tk: str, cookies: str,page:int=1,count:int=10,begintime:int=0) -> Optional[Dict[str, Any]]:
+    async def _get_zone(self, target_qq: int, g_tk: int, cookies: str,page:int=1,count:int=10,begintime:int=0) -> Optional[Dict[str, Any]]:
         """获取空间动态"""
         try:
             # 获取动态参数
@@ -87,7 +88,7 @@ class QzoneApi:
             logger.error(f"获取空间动态失败: {e}")
             return None
 
-    async def get_messages_list(self, target_qq: str, g_tk: str, cookies: str, pos: int = 0, num: int = 20) -> Optional[Dict[str, Any]]:
+    async def _get_messages_list(self, target_qq: int, g_tk: int, cookies: str, pos: int = 0, num: int = 20) -> Optional[Dict[str, Any]]:
         """获取说说列表"""
         try:
             params = get_self_zone(target_qq, g_tk, pos, num)
@@ -96,17 +97,16 @@ class QzoneApi:
             logger.error(f"获取说说列表失败: {e}")
             return None
         
-    async def zanzone(self, target_qq: int, g_tk: str, fid: int, cur_key: str,uni_key:str,cookies: str) -> Optional[Dict[str, Any]]:
+    async def _zanzone(self, target_qq: int, g_tk: int, fid: int, cur_key: str,uni_key:str,cookies: str) -> Optional[Dict[str, Any]]:
         """点赞指定说说"""
         try:
             params = like_feed(opuin=target_qq,fid=fid, cur_key=cur_key,uni_key=uni_key)
-            logger.info(params)
             return await self._make_post_request(url=f"{self.dolike_url}?&g_tk={g_tk}", data=params, cookies=cookies)
         except Exception as e:
             logger.error(f"尝试点赞时失败: {e}")
             return None
 
-    async def send_zone(self, target_qq: str, content: str, cookies: str,g_tk:str) -> Optional[Dict[str, Any]]:
+    async def _send_zone(self, target_qq: int, content: str, cookies: str,g_tk:int) -> Optional[Dict[str, Any]]:
         """发送文本说说"""
         try:
             params = get_send_zone(target_qq, content)
@@ -115,7 +115,7 @@ class QzoneApi:
             logger.error(f"发送说说失败: {e}")
             return None
     
-    async def send_comments(self, target_qq: int,uin:int, content: str, cookies: str,g_tk:str,fid:str) -> Optional[Dict[str, Any]]:
+    async def _send_comments(self, target_qq: int,uin:int, content: str, cookies: str,g_tk:str,fid:str) -> Optional[Dict[str, Any]]:
         """发送评论"""
         try:
             params = get_send_comment(target_qq,uin, content,fid)
@@ -124,7 +124,7 @@ class QzoneApi:
             logger.error(f"发送说说失败: {e}")
             return None
 
-    async def del_zone(self, target_qq: str, fid: str, cookies: str,g_tk:str,curkey:str,timestamp:int) -> Optional[Dict[str, Any]]:
+    async def _del_zone(self, target_qq: int, fid: str, cookies: str,g_tk:int,curkey:str,timestamp:int) -> Optional[Dict[str, Any]]:
         """删除说说"""
         try:
             params = get_del_zone(target_qq, fid,curkey,timestamp)
@@ -133,11 +133,19 @@ class QzoneApi:
             logger.error(f"删除说说失败: {e}")
             return None
         
-    async def forward_zone(self, target_qq: int,opuin:int, tid: str,connect:str, cookies: str,g_tk:str) -> Optional[Dict[str, Any]]:
+    async def _forward_zone(self, target_qq: int,opuin:int, tid: str,connect:str, cookies: str,g_tk:int) -> Optional[Dict[str, Any]]:
         """转发说说"""
         try:
             params = get_forward_zone(target_qq, opuin,tid,connect)
             return await self._make_post_request(url=f"{self.forward_url}?&g_tk={g_tk}", data=params, cookies=cookies)
         except Exception as e:
             logger.error(f"转发说说失败: {e}")
+            return None
+    
+    async def get_messages_list(self, target_qq: int, g_tk: int, cookies: str, pos: int = 0, num: int = 20) -> Optional[Dict[str, Any]]:
+        """获取说说列表,返回标准json数据格式"""
+        connect = await self._get_messages_list(target_qq, g_tk, cookies, pos, num)
+        if connect:
+            return parse_feed_data(parse_callback_data(clean_escaped_html(connect)))
+        else:
             return None

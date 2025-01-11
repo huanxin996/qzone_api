@@ -1,4 +1,4 @@
-from .api import QzoneApi
+from .api import *
 
 __all__ = ["QzoneApi"]
 __version__ = "0.0.1"

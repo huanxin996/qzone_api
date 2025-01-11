@@ -1,10 +1,10 @@
+import re,html,json
 from typing import Optional, Dict, Any, List,Tuple
 from loguru import logger
 from lxml import etree
-import re,html
 from html import unescape
 
-def get_gtk_from_skey(skey: str) -> int:
+def gtk_to_skey(skey: str) -> int:
     """将skey转换为gtk
     弃用"""
     hash = 5381
@@ -12,13 +12,93 @@ def get_gtk_from_skey(skey: str) -> int:
         hash += (hash << 5) + ord(c)
     return hash & 0x7fffffff
 
-def get_bkn_from_skey(skey: str) -> int:
+def bkn_to_skey(skey: str) -> int:
     """将skey转换为bkn
     弃用"""
     bkn = 5381
     for c in skey:
         bkn = ((bkn << 5) + bkn) + ord(c)
     return bkn & 2147483647
+
+
+def parse_callback_data(content: str) -> Optional[Dict[str, Any]]:
+    """解析_preloadCallback回调数据"""
+    try:
+        callback_pattern = r'_preloadCallback\((.*)\);?$'
+        match = re.search(callback_pattern, content, re.DOTALL)
+        if not match:
+            logger.error("无法匹配callback数据")
+            return None
+        json_str = match.group(1)
+        data = json.loads(json_str)
+        if data.get('code') != 0:
+            logger.error(f"QQ空间返回错误: {data.get('message', '未知错误')}")
+            return None
+        return data
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON解析失败: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"回调数据处理失败: {e}")
+        return None
+
+
+def clean_escaped_html(html_str: str) -> str:
+    """清洗转义的HTML字符串"""
+    def hex_to_char(match):
+        hex_str = match.group(1)
+        return chr(int(hex_str, 16))
+    html_str = re.sub(r'\\x([0-9a-fA-F]{2})', hex_to_char, html_str)
+    html_str = html_str.replace('\\"', '"')
+    html_str = html_str.replace('\\/', '/')
+    html_str = html_str.replace('\\n', '\n')
+    html_str = unescape(html_str)
+    html_str = re.sub(r'\s+', ' ', html_str)
+    html_str = html_str.strip()
+    return html_str
+
+
+
+def html_unesape(html_content: str) -> str:
+    """HTML反转义"""
+    try:
+        html_contents = clean_escaped_html(html_content)
+        htmls = etree.HTML(html_contents)
+        if htmls is None:
+            logger.error("HTML解析失败: 返回None")
+            return None
+        root = htmls.getroottree()
+        logger.debug(f"HTML解析成功, 根元素: {root.getroot().tag}")
+        logger.debug(f"子元素数量: {len(htmls.getchildren())}")
+        return htmls
+    except Exception as e:
+        logger.error(f"HTML解析异常: {str(e)}")
+        return None
+
+
+def is_repost_feed_html(feed_element) -> Tuple[bool, Optional[Dict]]:
+    """从HTML元素判断是否为转发动态"""
+    try:
+        is_repost = any([
+            feed_element.xpath(".//div[contains(@class, 'f-ct')]"),
+            feed_element.xpath(".//div[contains(@class, 'f-quote')]"),
+            feed_element.xpath(".//div[contains(@class, 'f-info-quote')]")
+        ])
+        
+        if is_repost:
+            original_info = {
+                'original_author': ''.join(feed_element.xpath(".//div[contains(@class,'f-quote')]//a[@class='f-name']//text()")).strip(),
+                'original_content': ''.join(feed_element.xpath(".//div[contains(@class,'f-quote')]//div[@class='f-info']//text()")).strip(),
+                'original_time': ''.join(feed_element.xpath(".//div[contains(@class,'f-quote')]//div[contains(@class,'info-detail')]//text()")).strip()
+            }
+            logger.debug(f"检测到转发动态,原作者: {original_info['original_author']}")
+            return True, original_info
+        
+        return False, None
+        
+    except Exception as e:
+        logger.error(f"判断转发动态失败: {e}")
+        return False, None
 
 
 def parse_message_ids(response_data: Dict) -> List[str]:
@@ -89,57 +169,44 @@ def parse_feeds(content) -> Optional[Dict[str, Any]]:
     return {"status": "ok", "data": feeds}
 
 
-def html_unesape(html_content: str) -> str:
-    """HTML反转义"""
+def parse_feed_data(data: dict) -> dict:
+    """解析指定用户获取到的说说数据"""
     try:
-        html_contents = clean_escaped_html(html_content)
-        htmls = etree.HTML(html_contents)
-        if htmls is None:
-            logger.error("HTML解析失败: 返回None")
-            return None
-        root = htmls.getroottree()
-        logger.debug(f"HTML解析成功, 根元素: {root.getroot().tag}")
-        logger.debug(f"子元素数量: {len(htmls.getchildren())}")
-        return htmls
-    except Exception as e:
-        logger.error(f"HTML解析异常: {str(e)}")
-        return None
-    
-
-def is_repost_feed_html(feed_element) -> Tuple[bool, Optional[Dict]]:
-    """从HTML元素判断是否为转发动态"""
-    try:
-        is_repost = any([
-            feed_element.xpath(".//div[contains(@class, 'f-ct')]"),
-            feed_element.xpath(".//div[contains(@class, 'f-quote')]"),
-            feed_element.xpath(".//div[contains(@class, 'f-info-quote')]")
-        ])
-        
-        if is_repost:
-            original_info = {
-                'original_author': ''.join(feed_element.xpath(".//div[contains(@class,'f-quote')]//a[@class='f-name']//text()")).strip(),
-                'original_content': ''.join(feed_element.xpath(".//div[contains(@class,'f-quote')]//div[@class='f-info']//text()")).strip(),
-                'original_time': ''.join(feed_element.xpath(".//div[contains(@class,'f-quote')]//div[contains(@class,'info-detail')]//text()")).strip()
+        feeds = []
+        for msg in data.get('msglist', []):
+            feed = {
+                'cur_key': msg.get('tid', ''),
+                'uin': msg.get('uin', ''),
+                'timestamp': msg.get('created_time', 0),
+                'content': '',
+                'images': [],
+                'repost': None
             }
-            logger.debug(f"检测到转发动态,原作者: {original_info['original_author']}")
-            return True, original_info
-        
-        return False, None
-        
+            if 'pic' in msg:
+                for pic in msg['pic']:
+                    feed['images'].append({
+                        'url': pic.get('url1', ''),
+                        'width': pic.get('width', 0),
+                        'height': pic.get('height', 0)
+                    })
+            if 'rt_con' in msg:
+                feed['repost'] = {
+                    'uni_key': msg.get('rt_tid', ''),
+                    'content': msg['rt_con'].get('content', ''),
+                    'author': msg.get('rt_uinname', ''),
+                    'uin': msg.get('rt_uin', ''),
+                    'time': msg.get('rt_createTime', '')
+                }
+                
+            feeds.append(feed)
+        return {
+            'status': 'ok',
+            'total': len(feeds),
+            'data': feeds
+        }
     except Exception as e:
-        logger.error(f"判断转发动态失败: {e}")
-        return False, None
-
-def clean_escaped_html(html_str: str) -> str:
-    """清洗转义的HTML字符串"""
-    def hex_to_char(match):
-        hex_str = match.group(1)
-        return chr(int(hex_str, 16))
-    html_str = re.sub(r'\\x([0-9a-fA-F]{2})', hex_to_char, html_str)
-    html_str = html_str.replace('\\"', '"')
-    html_str = html_str.replace('\\/', '/')
-    html_str = html_str.replace('\\n', '\n')
-    html_str = unescape(html_str)
-    html_str = re.sub(r'\s+', ' ', html_str)
-    html_str = html_str.strip()
-    return html_str
+        logger.error(f"解析说说数据失败: {e}")
+        return {
+            'status': 'error',
+            'message': str(e)
+        }
