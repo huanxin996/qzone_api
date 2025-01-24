@@ -1,26 +1,38 @@
-import re,html,json
-from typing import Optional, Dict, Any, List,Tuple
+import re,json,html
+from typing import Dict, Any, List, Tuple, Optional
 from loguru import logger
 from lxml import etree
 from html import unescape
 
-def gtk_to_skey(skey: str) -> int:
-    """将skey转换为gtk
-    弃用"""
-    hash = 5381
-    for c in skey:
-        hash += (hash << 5) + ord(c)
-    return hash & 0x7fffffff
+def clean_escaped_html(html_str: str) -> str:
+    """清洗转义的HTML字符串"""
+    def hex_to_char(match):
+        hex_str = match.group(1)
+        return chr(int(hex_str, 16))
+    html_str = re.sub(r'\\x([0-9a-fA-F]{2})', hex_to_char, html_str)
+    html_str = html_str.replace('\\"', '"')
+    html_str = html_str.replace('\\/', '/')
+    html_str = html_str.replace('\\n', '\n')
+    html_str = unescape(html_str)
+    html_str = re.sub(r'\s+', ' ', html_str)
+    html_str = html_str.strip()
+    return html_str
 
-def bkn_to_skey(skey: str) -> int:
-    """将skey转换为bkn
-    弃用"""
-    bkn = 5381
-    for c in skey:
-        bkn = ((bkn << 5) + bkn) + ord(c)
-    return bkn & 2147483647
-
-
+def html_unesape(html_content: str) -> str:
+    """HTML反转义"""
+    try:
+        html_contents = clean_escaped_html(html_content)
+        htmls = etree.HTML(html_contents)
+        if htmls is None:
+            logger.error("HTML解析失败: 返回None")
+            return None
+        root = htmls.getroottree()
+        logger.debug(f"HTML解析成功, 根元素: {root.getroot().tag}")
+        logger.debug(f"子元素数量: {len(htmls.getchildren())}")
+        return htmls
+    except Exception as e:
+        logger.error(f"HTML解析异常: {str(e)}")
+        return None
 def parse_callback_data(content: str) -> Optional[Dict[str, Any]]:
     """解析_preloadCallback回调数据"""
     try:
@@ -41,40 +53,6 @@ def parse_callback_data(content: str) -> Optional[Dict[str, Any]]:
     except Exception as e:
         logger.error(f"回调数据处理失败: {e}")
         return None
-
-
-def clean_escaped_html(html_str: str) -> str:
-    """清洗转义的HTML字符串"""
-    def hex_to_char(match):
-        hex_str = match.group(1)
-        return chr(int(hex_str, 16))
-    html_str = re.sub(r'\\x([0-9a-fA-F]{2})', hex_to_char, html_str)
-    html_str = html_str.replace('\\"', '"')
-    html_str = html_str.replace('\\/', '/')
-    html_str = html_str.replace('\\n', '\n')
-    html_str = unescape(html_str)
-    html_str = re.sub(r'\s+', ' ', html_str)
-    html_str = html_str.strip()
-    return html_str
-
-
-
-def html_unesape(html_content: str) -> str:
-    """HTML反转义"""
-    try:
-        html_contents = clean_escaped_html(html_content)
-        htmls = etree.HTML(html_contents)
-        if htmls is None:
-            logger.error("HTML解析失败: 返回None")
-            return None
-        root = htmls.getroottree()
-        logger.debug(f"HTML解析成功, 根元素: {root.getroot().tag}")
-        logger.debug(f"子元素数量: {len(htmls.getchildren())}")
-        return htmls
-    except Exception as e:
-        logger.error(f"HTML解析异常: {str(e)}")
-        return None
-
 
 def is_repost_feed_html(feed_element) -> Tuple[bool, Optional[Dict]]:
     """从HTML元素判断是否为转发动态"""
@@ -100,7 +78,6 @@ def is_repost_feed_html(feed_element) -> Tuple[bool, Optional[Dict]]:
         logger.error(f"判断转发动态失败: {e}")
         return False, None
 
-
 def parse_message_ids(response_data: Dict) -> List[str]:
     """解析返回数据中的说说ID列表"""
     try:
@@ -118,7 +95,6 @@ def parse_message_ids(response_data: Dict) -> List[str]:
         return tid_list
     except Exception as e:
         logger.error(f"解析说说ID列表时发生错误：{e}")
-        
 
 def parse_feeds(content) -> Optional[Dict[str, Any]]:
     """解析好友动态列表数据"""
@@ -167,7 +143,6 @@ def parse_feeds(content) -> Optional[Dict[str, Any]]:
             logger.error(f"解析单条动态失败: {e}")
             continue
     return {"status": "ok", "data": feeds}
-
 
 def parse_feed_data(data: dict) -> dict:
     """解析指定用户获取到的说说数据"""
