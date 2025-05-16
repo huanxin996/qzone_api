@@ -54,3 +54,4 @@ RUN ln -sf /etc/apache2/sites-available/000-default.conf /etc/apache2/sites-enab
 
 # 设置工作目录
 WORKDIR /var/www/html
+EXPOSE 80 443
