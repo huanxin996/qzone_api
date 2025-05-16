@@ -75,6 +75,7 @@ async def main():
         
         # 获取cookies和g_tk等参数
         cookies = login_result["cookies"]
+        cookies_str = '; '.join([f"{k}={v}" for k, v in cookies.items()])
         skey = login_result["skey"]
         bkn = login_result["bkn"]
         #:请在这里自行管理你的cookies和g_tk等参数
@@ -88,7 +89,7 @@ async def main():
         messages = await qzone.get_messages_list(
             target_qq=int(login_result["qq"]),
             g_tk=bkn,
-            cookies=cookies
+            cookies=cookies_str
         )
         
         if messages:
@@ -98,7 +99,7 @@ async def main():
             await qzone._send_zone(
                 target_qq=int(login_result["qq"]),
                 content="Hello QZone-API! 这是通过API发送的说说~",
-                cookies=cookies,
+                cookies=cookies_str,
                 g_tk=bkn
             )
             print("发送说说成功!")
