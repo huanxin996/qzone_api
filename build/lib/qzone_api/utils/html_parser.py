@@ -145,7 +145,7 @@ def parse_feeds(content) -> Optional[Dict[str, Any]]:
     return {"status": "ok", "data": feeds}
 
 def parse_feed_data(data: dict) -> dict:
-    """解析指定用户获取到的说说数据"""
+    """解析指定用户获取到的说说数据，支持转发内容和多层转发解析"""
     try:
         feeds = []
         for msg in data.get('msglist', []):
@@ -153,26 +153,34 @@ def parse_feed_data(data: dict) -> dict:
                 'cur_key': msg.get('tid', ''),
                 'uin': msg.get('uin', ''),
                 'timestamp': msg.get('created_time', 0),
-                'content': '',
+                'content': msg.get('content', ''),
                 'images': [],
                 'repost': None
             }
-            if 'pic' in msg:
-                for pic in msg['pic']:
-                    feed['images'].append({
-                        'url': pic.get('url1', ''),
-                        'width': pic.get('width', 0),
-                        'height': pic.get('height', 0)
-                    })
+            
             if 'rt_con' in msg:
                 feed['repost'] = {
                     'uni_key': msg.get('rt_tid', ''),
                     'content': msg['rt_con'].get('content', ''),
                     'author': msg.get('rt_uinname', ''),
                     'uin': msg.get('rt_uin', ''),
-                    'time': msg.get('rt_createTime', '')
+                    'time': msg.get('rt_createTime', ''),
+                    'images': []
                 }
-                
+                if 'pic' in msg:
+                    for pic in msg['pic']:
+                        feed['repost']['images'].append({
+                            'url': pic.get('url1', ''),
+                            'width': pic.get('width', 0),
+                            'height': pic.get('height', 0)
+                        })
+            if 'pic' in msg and not msg.get('rt_con'):
+                for pic in msg['pic']:
+                    feed['images'].append({
+                        'url': pic.get('url1', ''),
+                        'width': pic.get('width', 0),
+                        'height': pic.get('height', 0)
+                    })
             feeds.append(feed)
         return {
             'status': 'ok',
