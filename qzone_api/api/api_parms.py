@@ -42,7 +42,7 @@ def get_feeds(uin: int, g_tk: int, page: int = 1, count: int = 10,begintime:int=
     }
     return params
 
-def get_self_zone(target_qq: int, g_tk: int,  pos: int = 0, num: int = 20) -> Dict[str, Any]:
+def get_self_zone(target_qq: int, g_tk: int,  pos: int = 0, num: int = 20, begintime: int = 0) -> Dict[str, Any]:
     """获取指定QQ的说说数据"""
     params = {
         "uin": target_qq,          # 目标QQ
@@ -57,6 +57,8 @@ def get_self_zone(target_qq: int, g_tk: int,  pos: int = 0, num: int = 20) -> Di
         "format": "jsonp",
         "need_private_comment": 1
     }
+    if begintime:
+        params["begintime"] = begintime   # 只获取该时间戳之前的说说
     return params
 
 def get_send_zone(target_qq:int,content:str) -> Dict[str, Any]:

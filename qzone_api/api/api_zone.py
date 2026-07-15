@@ -43,10 +43,10 @@ class ApiZone(ApiBase):
         except Exception as e:
             logger.error(f"获取空间动态失败: {e}")
             return None
-    async def _get_messages_list(self, target_qq: int, g_tk: int, cookies: str, pos: int = 0, num: int = 20) -> Optional[Dict[str, Any]]:
+    async def _get_messages_list(self, target_qq: int, g_tk: int, cookies: str, pos: int = 0, num: int = 20, begintime: int = 0) -> Optional[Dict[str, Any]]:
         """获取说说列表原始数据"""
         try:
-            params = get_self_zone(target_qq, g_tk, pos, num)
+            params = get_self_zone(target_qq, g_tk, pos, num, begintime)
             return await self._make_get_request(self.self_url, params, cookies)
         except Exception as e:
             logger.error(f"获取说说列表失败: {e}")
