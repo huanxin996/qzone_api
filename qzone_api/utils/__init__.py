@@ -6,6 +6,7 @@ from .html_parser import (
     parse_feed_data,
     is_repost_feed_html,
     clean_escaped_html,
+    html_unescape,
     html_unesape
 )
 
@@ -14,6 +15,7 @@ __all__ = [
     'bkn',
     'ptqrToken',
     'clean_escaped_html',
+    'html_unescape',
     'html_unesape',
     'parse_callback_data',
     'parse_message_ids',

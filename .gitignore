@@ -1,10 +1,7 @@
-__pycache__
-.venv
-*/__pycache__
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.venv/
 .history
-.vscode
-env
-build
-qzone_api.egg-info
-login
-utils

@@ -18,8 +18,8 @@ def clean_escaped_html(html_str: str) -> str:
     html_str = html_str.strip()
     return html_str
 
-def html_unesape(html_content: str) -> str:
-    """HTML反转义"""
+def html_unescape(html_content: str):
+    """清洗并解析HTML，返回 lxml 元素树（失败返回 None）"""
     try:
         html_contents = clean_escaped_html(html_content)
         htmls = etree.HTML(html_contents)
@@ -33,6 +33,12 @@ def html_unesape(html_content: str) -> str:
     except Exception as e:
         logger.error(f"HTML解析异常: {str(e)}")
         return None
+
+
+# 兼容别名（旧版本拼写）
+html_unesape = html_unescape
+
+
 def parse_callback_data(content: str) -> Optional[Dict[str, Any]]:
     """解析_preloadCallback回调数据"""
     try:
@@ -95,16 +101,19 @@ def parse_message_ids(response_data: Dict) -> List[str]:
         return tid_list
     except Exception as e:
         logger.error(f"解析说说ID列表时发生错误：{e}")
+        return []
 
 def parse_feeds(content) -> Optional[Dict[str, Any]]:
     """解析好友动态列表数据"""
     html_content = html.unescape(content)
-    htmls = html_unesape(html_content)
-    
-    if htmls is not None:
-        feeds = []
-        items = htmls.xpath("//li[contains(@class, 'f-single f-s-s')]")
-        logger.debug(f"找到动态项: {len(items)}个")
+    htmls = html_unescape(html_content)
+
+    if htmls is None:
+        logger.error("好友动态HTML解析失败")
+        return None
+    feeds = []
+    items = htmls.xpath("//li[contains(@class, 'f-single f-s-s')]")
+    logger.debug(f"找到动态项: {len(items)}个")
     for item in items:
         try:
             class_attr = item.get('id', '')
@@ -148,12 +157,12 @@ def parse_feed_data(data: dict) -> dict:
     """解析指定用户获取到的说说数据，支持转发内容、评论、点赞"""
     try:
         feeds = []
-        for msg in data.get('msglist', []):
+        for msg in (data.get('msglist') or []):
             feed = {
                 'cur_key': msg.get('tid', ''),
                 'uin': msg.get('uin', ''),
                 'timestamp': msg.get('created_time', 0),
-                'content': '',
+                'content': msg.get('content', ''),
                 'images': [],
                 'videos': [],                                      # 视频列表
                 'repost': None,
@@ -165,20 +174,14 @@ def parse_feed_data(data: dict) -> dict:
             }
 
             # --- 转发内容 ---
-            if 'pic' in msg:
-                for pic in msg['pic']:
-                    feed['images'].append({
-                        'url': pic.get('url1', ''),
-                        'width': pic.get('width', 0),
-                        'height': pic.get('height', 0)
-                    })
             if 'rt_con' in msg:
                 feed['repost'] = {
                     'uni_key': msg.get('rt_tid', ''),
                     'content': msg['rt_con'].get('content', ''),
                     'author': msg.get('rt_uinname', ''),
                     'uin': msg.get('rt_uin', ''),
-                    'time': msg.get('rt_createTime', '')
+                    'time': msg.get('rt_createTime', ''),
+                    'images': []
                 }
                 pics = msg.get('pic')
                 if pics:
@@ -214,12 +217,31 @@ def parse_feed_data(data: dict) -> dict:
             commentlist = msg.get('commentlist')
             if commentlist:
                 for cmt in commentlist:
-                    feed['comments'].append({
+                    comment = {
+                        'id': cmt.get('tid', 0),                # 评论ID，可用于回复评论
                         'uin': cmt.get('uin', ''),
                         'name': cmt.get('name', ''),
                         'content': cmt.get('content', ''),
                         'time': cmt.get('createTime2', cmt.get('createTime', '')),
-                    })
+                        'timestamp': cmt.get('create_time', 0),
+                        'images': [],                            # 评论中的图片
+                        'reply_count': cmt.get('replynum', 0),   # 该评论的回复数
+                        'replies': [],                           # 该评论的回复列表
+                    }
+                    for pic in (cmt.get('rich_info') or []):
+                        url = pic.get('burl', '') or pic.get('url', '')
+                        if url:
+                            comment['images'].append({'url': url})
+                    for reply in (cmt.get('list_3') or []):
+                        comment['replies'].append({
+                            'id': reply.get('tid', 0),
+                            'uin': reply.get('uin', ''),
+                            'name': reply.get('name', ''),
+                            'content': reply.get('content', ''),
+                            'time': reply.get('createTime2', reply.get('createTime', '')),
+                            'timestamp': reply.get('create_time', 0),
+                        })
+                    feed['comments'].append(comment)
             # 如果 commentlist 为空但 cmtnum > 0，说明有评论但未返回详情
             if not feed['comments'] and feed['comment_count'] > 0:
                 feed['comment_count'] = msg.get('cmtnum', 0)

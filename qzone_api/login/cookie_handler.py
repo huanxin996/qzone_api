@@ -63,5 +63,8 @@ class CookieHandler:
                 logger.debug(f"获取最终cookies失败: {e}")
                 return {"success": False, "expired": False}
         else:
-            logger.debug('用户取消登录')
-            return {"success": False, "expired": True}
+            if '用户取消登录' in text:
+                logger.debug('用户取消登录')
+                return {"success": False, "expired": True}
+            logger.debug('未知状态')
+            return {"success": False, "expired": False, "risk": True}
