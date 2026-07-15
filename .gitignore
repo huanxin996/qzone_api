@@ -1,0 +1,10 @@
+__pycache__
+.venv
+*/__pycache__
+.history
+.vscode
+env
+build
+qzone_api.egg-info
+login
+utils
