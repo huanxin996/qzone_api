@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD024 MD036 MD041 -->
 # 使用示例
 
 下面按实际使用流程走一遍：登录、拿列表、发说说、发图、评论、回复、点赞、转发、删除。所有方法都是异步的，需要在 `async` 函数里 `await` 调用。
@@ -307,6 +308,51 @@ tid = resp["tid"]
 
 # 编辑刚发的说说，改成所有人可见
 await qzone.edit_message(qq, tid, "改过的内容", cookies_str, g_tk_pskey, ugc_right=1)
+```
+
+## 指定某人可见 / 指定某人不可见
+
+可见范围取值（`from qzone_api import UGC_RIGHT_*`）：
+
+| 常量 | 值 | 含义 |
+| --- | --- | --- |
+| `UGC_RIGHT_ALL` | 1 | 所有人可见 |
+| `UGC_RIGHT_FRIEND` | 4 | 好友可见 |
+| `UGC_RIGHT_PART` | 16 | **指定名单里的人可见**（其他人看不到） |
+| `UGC_RIGHT_SELF` | 64 | 仅自己可见 |
+| `UGC_RIGHT_EXCLUDE` | 128 | **指定名单里的人不可见**（其他人能看到） |
+
+`ugc_right=16` 和 `ugc_right=128` 都要配合 `uins`（QQ 号列表）使用，
+底层拼成官方的 `allow_uins`（逗号分隔）字段——两者字段名相同，只是语义相反：
+
+```python
+from qzone_api import UGC_RIGHT_PART, UGC_RIGHT_EXCLUDE
+ 
+# 只给 10001、10002 两个人看
+await qzone.publish_message(qq, "只给你们看", cookies_str, g_tk,
+                            ugc_right=UGC_RIGHT_PART, uins=[10001, 10002])
+ 
+# 除了 10001 别人都能看（对 10001 屏蔽）
+await qzone.publish_message(qq, "就不给某人看", cookies_str, g_tk,
+                            ugc_right=UGC_RIGHT_EXCLUDE, uins=[10001])
+ 
+# 编辑说说时同样可以改名单（g_tk 用 p_skey 版）
+await qzone.edit_message(qq, tid, "改一下名单", cookies_str, g_tk_pskey,
+                         ugc_right=UGC_RIGHT_PART, uins=[10001, 10003])
+```
+
+> `uins` 只在 `ugc_right=16/128` 时生效，其它取值会被忽略。
+
+## 删除说说
+
+`delete_message` 只需要说说列表里该条的 `cur_key`（feedsKey）和 `timestamp`，
+内部会自动拼成官方要求的 `topicId`（`{uin}_{feedsKey}__1`）：
+
+```python
+ms = await qzone.get_messages_list(qq, g_tk, cookies_str)
+feed = ms["data"][0]
+await qzone.delete_message(qq, feed["cur_key"], cookies_str, g_tk,
+                           feed["cur_key"], feed["timestamp"])
 ```
 
 ## 评论：点赞 / 删除评论 / 删除回复
