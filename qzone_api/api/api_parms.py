@@ -6,7 +6,14 @@ get_del_zone/get_forward_zone）作为兼容别名保留。
 """
 import re
 import time
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Sequence
+
+
+def _format_uin_list(uins: Optional[Sequence[int]]) -> str:
+    """把 QQ 列表拼成 allow_uins 需要的逗号分隔字符串。"""
+    if not uins:
+        return ""
+    return ",".join(str(u) for u in uins)
 
 
 def build_like_params(opuin: int, appid: int = 311, fid: Optional[str] = None,
@@ -92,11 +99,16 @@ def format_mention(uin: int, nick: str) -> str:
 
 
 def build_publish_params(target_qq: int, content: str,
-                         ugc_right: int = UGC_RIGHT_ALL) -> Dict[str, Any]:
+                         ugc_right: int = UGC_RIGHT_ALL,
+                         uins: Optional[Sequence[int]] = None) -> Dict[str, Any]:
     """构建发表文本说说的请求参数。
 
     ugc_right 为可见范围：1 所有人 / 4 QQ好友 / 16 部分好友可见 /
     64 仅自己可见 / 128 部分好友不可见。@某人可用 :func:`format_mention` 拼进 content。
+
+    uins 为指定名单（仅 ugc_right=16/128 时有意义）：真实抓包确认发布/编辑都用
+    ``allow_uins`` 这一个字段传逗号分隔的 QQ 列表，ugc_right=16 时该列表是“指定这些人
+    可见”，ugc_right=128 时是“指定这些人不可见”，字段名相同、语义由 ugc_right 决定。
     """
     params = {
         "syn_tweet_verson": 1,   # 说说版本
@@ -115,15 +127,20 @@ def build_publish_params(target_qq: int, content: str,
         "format": "fs",
         "qzreferrer": f"https://user.qzone.qq.com/{target_qq}"
     }
+    if ugc_right in (UGC_RIGHT_PART, UGC_RIGHT_EXCLUDE) and uins:
+        params["allow_uins"] = _format_uin_list(uins)  # 指定可见/不可见名单
     return params
 
 
 def build_edit_message_params(target_qq: int, tid: str, content: str,
                               ugc_right: int = UGC_RIGHT_ALL,
-                              ugcright_id: str = "") -> Dict[str, Any]:
+                              ugcright_id: str = "",
+                              uins: Optional[Sequence[int]] = None) -> Dict[str, Any]:
     """构建编辑已发说说（emotion_cgi_update）的请求参数。
 
     tid 为说说 id；ugcright_id 取自说说列表里该条的 ``ugcright_id``（可留空）。
+    uins 与 :func:`build_publish_params` 一致：ugc_right=16/128 时用 ``allow_uins``
+    传逗号分隔的 QQ 名单（16 指定可见、128 指定不可见）。
     """
     params = {
         "syn_tweet_verson": 1,
@@ -145,6 +162,8 @@ def build_edit_message_params(target_qq: int, tid: str, content: str,
         "format": "fs",
         "qzreferrer": f"https://user.qzone.qq.com/{target_qq}",
     }
+    if ugc_right in (UGC_RIGHT_PART, UGC_RIGHT_EXCLUDE) and uins:
+        params["allow_uins"] = _format_uin_list(uins)  # 指定可见/不可见名单
     return params
 
 
@@ -312,15 +331,27 @@ def build_reply_params(target_qq: int, uin: int, fid: str, comment_id: int,
 
 
 def build_delete_params(uin: int, fid: str, curkey: str, timestamp: int) -> Dict[str, Any]:
-    """构建删除说说的请求参数"""
+    """构建删除说说（emotion_cgi_delete_v6）的请求参数。
+
+    fid 可传说说的 feedsKey（说说列表里该条的 ``cur_key``），会自动补全为官方
+    要求的 topicId 形式 ``{uin}_{feedsKey}__1``；也可直接传完整 topicId。
+    curkey 为 feedsKey，留空时从 fid 反推。timestamp 取说说的 ``timestamp``。
+    """
+    fid = str(fid)
+    if "_" in fid:
+        topic_id = fid
+        feeds_key = curkey or fid.split("_", 1)[1].split("__", 1)[0]
+    else:
+        feeds_key = curkey or fid
+        topic_id = f"{uin}_{feeds_key}__1"
     params = {
         "uin": uin,              # 目标QQ
-        "topicId": fid,          # 说说ID
+        "topicId": topic_id,     # 说说topicId：{uin}_{feedsKey}__1
         "feedsType": 0,          # 说说类型
         "feedsFlag": 0,          # 说说标记
-        "feedsKey": curkey,      # 当前key
+        "feedsKey": feeds_key,   # feedsKey（说说列表里的 cur_key）
         "feedsAppid": 311,
-        "feedsTime": timestamp,  # 时间戳
+        "feedsTime": timestamp,  # 说说发布时间戳
         "fupdate": 1,            # 更新标记
         "ref": "feeds",
         "qzreferrer": f"https://user.qzone.qq.com/{uin}",

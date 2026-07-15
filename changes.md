@@ -13,7 +13,7 @@
 - 发说说 / 编辑说说支持选私密模式：`publish_message` / `edit_message` 新增 `ugc_right` 参数，取值 `1` 所有人 / `4` QQ好友 / `16` 部分好友可见 / `64` 仅自己可见 / `128` 部分好友不可见，也可以直接用导出的常量 `UGC_RIGHT_ALL` / `UGC_RIGHT_FRIEND` / `UGC_RIGHT_PART` / `UGC_RIGHT_SELF` / `UGC_RIGHT_EXCLUDE`
 - 在说说里 @某人：用 `format_mention(qq号, 昵称)` 生成 `@{uin:QQ,nick:昵称,who:1}`
 - `指定某人可见 / 指定某人不可见`：两种模式用的是同一个字段 `allow_uins`（准[]列表），区别只在 `ugc_right`——`16` 表示名单里的人可见、`128` 表示名单里的人不可见`publish_message` / `edit_message` 新增 `uins` 参数（QQ 号列表），只在 `ugc_right=16/128` 时生效，底层自动拼成 `allow_uins`, 发布响应的 HTML 里能看到对应的 `data-accessright="16"` / `data-accessright="128"`
-- 在说说里 @某人：用 `format_mention(qq号, 昵称)` 生成 `@{uin:QQ,nick:昵称,who:1}` 
+- 在说说里 @某人：用 `format_mention(qq号, 昵称)` 生成 `@{uin:QQ,nick:昵称,who:1}`
 - `delete_message`：抓包确认官方删除走 `emotion_cgi_delete_v6`，`topicId` 形如 `{uin}_{feedsKey}__1`。现在只要传说说列表里的 `cur_key`（feedsKey）即可
   
 ### 留言板
@@ -53,7 +53,6 @@
 - `list_albums`：拉相册列表（自己的，或对方公开可见的），返回相册 id、名称、封面、照片数、权限等
 - `list_album_photos`：拉某个相册里的图片列表，返回每张图的 `lloc`/`sloc`、url、尺寸、上传时间等
 - `delete_photo`：删自己相册里的某张图片（只能删当前登录账号名下的），走 `cgi_delpic_multi_v2`
-
 
 ### 命名调整
 

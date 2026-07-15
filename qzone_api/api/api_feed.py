@@ -1,5 +1,5 @@
 import base64
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any, List, Optional, Union, Sequence
 from loguru import logger
 from .api_base import ApiBase
 from .api_parms import (
@@ -41,15 +41,19 @@ class ApiFeed(ApiBase):
             return None
 
     async def publish_message(self, target_qq: int, content: str, cookies: str,
-                              g_tk: int, ugc_right: int = UGC_RIGHT_ALL
+                              g_tk: int, ugc_right: int = UGC_RIGHT_ALL,
+                              uins: Optional[Sequence[int]] = None
                               ) -> Optional[Union[Dict[str, Any], str]]:
         """发表文本说说。
 
         ugc_right 控制可见范围：1 所有人 / 4 QQ好友 / 16 部分好友可见 /
         64 仅自己可见 / 128 部分好友不可见。@某人用 ``build_params.format_mention`` 拼进 content。
+
+        uins 为指定名单，仅在 ugc_right=16（指定这些人可见）或 128（指定这些人不可见）
+        时生效，传 QQ 号序列即可，内部会拼成官方的 ``allow_uins`` 逗号分隔字段。
         """
         try:
-            params = build_publish_params(target_qq, content, ugc_right=ugc_right)
+            params = build_publish_params(target_qq, content, ugc_right=ugc_right, uins=uins)
             return await self._make_post_request(url=f"{self.send_url}?&g_tk={g_tk}", data=params, cookies=cookies)
         except Exception as e:
             logger.error(f"发送说说失败: {e}")
@@ -57,14 +61,18 @@ class ApiFeed(ApiBase):
 
     async def edit_message(self, target_qq: int, tid: str, content: str, cookies: str,
                            g_tk: int, ugc_right: int = UGC_RIGHT_ALL,
-                           ugcright_id: str = "") -> Optional[Union[Dict[str, Any], str]]:
+                           ugcright_id: str = "",
+                           uins: Optional[Sequence[int]] = None
+                           ) -> Optional[Union[Dict[str, Any], str]]:
         """编辑已发说说（emotion_cgi_update，g_tk 需用 p_skey 计算）。
 
         tid 为说说 id；ugcright_id 取自说说列表里该条的 ``ugcright_id``（可留空）。
+        uins 与 :meth:`publish_message` 一致：ugc_right=16/128 时传指定名单 QQ 序列。
         """
         try:
             params = build_edit_message_params(target_qq, tid, content,
-                                               ugc_right=ugc_right, ugcright_id=ugcright_id)
+                                               ugc_right=ugc_right, ugcright_id=ugcright_id,
+                                               uins=uins)
             return await self._make_post_request(url=f"{self.update_url}?&g_tk={g_tk}", data=params, cookies=cookies)
         except Exception as e:
             logger.error(f"编辑说说失败: {e}")
