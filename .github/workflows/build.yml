@@ -1,0 +1,46 @@
+name: build
+
+on:
+  push:
+    branches:
+      - qqzone-api
+  pull_request:
+    branches:
+      - qqzone-api
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: 构建并校验安装包
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 安装打包工具
+        run: python -m pip install --upgrade pip build twine
+
+      - name: 构建 sdist 和 wheel
+        run: python -m build
+
+      - name: 校验产物元数据
+        run: python -m twine check dist/*
+
+      - name: 检查产物是否生成
+        run: |
+          ls -l dist
+          test -n "$(ls dist/*.whl 2>/dev/null)"
+          test -n "$(ls dist/*.tar.gz 2>/dev/null)"
+
+      - name: 上传安装包产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: qzone_api-dist
+          path: dist/*
+          if-no-files-found: error
