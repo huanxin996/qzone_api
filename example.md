@@ -291,6 +291,96 @@ resp = await qzone.delete_photo(
 # resp["code"] == 0 且 resp["data"]["succ"] 里有对应 id 即删除成功
 ```
 
+> 私密/加密相册的访问控制在腾讯服务端，没有绕过的接口，这个库不提供越权查看他人隐私相册的功能。
+
+## 编辑说说 / 私密模式 / @某人
+
+`edit_message` 用的 `g_tk` 要用 `p_skey` 算（`g_tk_pskey`），可见范围用 `ugc_right`：
+
+```python
+from qzone_api import UGC_RIGHT_SELF, format_mention
+
+# 发一条只有自己可见、并且 @了某人的说说
+content = "测试 " + format_mention(10001, "张三")   # -> "测试 @{uin:10001,nick:张三,who:1}"
+resp = await qzone.publish_message(qq, content, cookies_str, g_tk, ugc_right=UGC_RIGHT_SELF)
+tid = resp["tid"]
+
+# 编辑刚发的说说，改成所有人可见
+await qzone.edit_message(qq, tid, "改过的内容", cookies_str, g_tk_pskey, ugc_right=1)
+```
+
+## 评论：点赞 / 删除评论 / 删除回复
+
+评论 id 从 `get_messages_list` 解析出的每条评论的 `id` 拿：
+
+```python
+ms = await qzone.get_messages_list(qq, g_tk, cookies_str)
+feed = ms["data"][0]
+tid = feed["tid"]
+cmt = feed["comments"][0]
+comment_id = cmt["id"]
+
+# 给这条评论点赞
+await qzone.like_comment(qq, qq, tid, comment_id, cookies_str, g_tk)
+
+# 删除评论下的某条回复
+reply_id = cmt["replies"][0]["id"]
+await qzone.delete_reply(qq, qq, tid, comment_id, reply_id, cookies_str, g_tk)
+
+# 删除评论本身
+await qzone.delete_comment(qq, qq, tid, comment_id, cookies_str, g_tk)
+```
+
+## 留言板
+
+`g_tk` 用 `p_skey` 算：
+
+```python
+# 读留言
+mb = await qzone.get_message_board(host_qq, qq, g_tk_pskey, cookies_str, start=0, num=10)
+for m in mb["messages"]:
+    print(m["id"], m["name"], m["content"])
+
+# 发留言
+await qzone.post_message_board(host_qq, qq, "来逛逛", cookies_str, g_tk_pskey)
+
+# 删留言（要传留言 id 和该留言留言者的 QQ）
+first = mb["messages"][0]
+await qzone.delete_message_board(host_qq, first["id"], first["uin"], cookies_str, g_tk_pskey)
+```
+
+## 访客
+
+只能查自己的访客，`g_tk` 用 `p_skey` 算：
+
+```python
+vs = await qzone.get_visitors(qq, g_tk_pskey, cookies_str, page=1, count=20)
+print("累计访问量:", vs["total_visit"])
+for v in vs["visitors"]:
+    print(v["uin"], v["name"], v["time"], v["is_friend"])
+```
+
+## 日志
+
+`g_tk` 用 `p_skey` 算：
+
+```python
+# 列表
+bl = await qzone.list_blogs(qq, qq, g_tk_pskey, cookies_str, pos=0, num=15)
+for b in bl["blogs"]:
+    print(b["id"], b["title"], b["time"])
+
+# 发日志（正文是 HTML；right_type: 1公开 2好友 3指定 4仅自己）
+resp = await qzone.publish_blog(qq, "标题", "<p>正文</p>", cookies_str, g_tk_pskey, right_type=1)
+
+# 编辑
+blog_id = bl["blogs"][0]["id"]
+await qzone.edit_blog(qq, blog_id, "新标题", "<p>新正文</p>", cookies_str, g_tk_pskey)
+
+# 删除
+await qzone.delete_blog(qq, qq, blog_id, cookies_str, g_tk_pskey)
+```
+
 ## 返回值和出错处理
 
 - 请求成功且能解析出 JSON 时返回 dict，一般 `code == 0`（或 `err.code == 0`）表示成功；

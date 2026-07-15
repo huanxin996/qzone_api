@@ -74,8 +74,30 @@ def build_messages_params(target_qq: int, g_tk: int, pos: int = 0, num: int = 20
     return params
 
 
-def build_publish_params(target_qq: int, content: str) -> Dict[str, Any]:
-    """构建发表文本说说的请求参数"""
+# 说说/日志权限（ugc_right / rightType）取值说明见 format_mention / build_publish_params
+UGC_RIGHT_ALL = 1        # 所有人可见
+UGC_RIGHT_FRIEND = 4     # QQ好友可见
+UGC_RIGHT_PART = 16      # 部分好友可见
+UGC_RIGHT_SELF = 64      # 仅自己可见
+UGC_RIGHT_EXCLUDE = 128  # 部分好友不可见
+
+
+def format_mention(uin: int, nick: str) -> str:
+    """生成说说/评论正文里 @某人 的富文本标记。
+
+    直接把返回值拼进 content 即可，例如 ``f"你好 {format_mention(123, '张三')}"``。
+    服务端/渲染端按 ``@{uin:QQ,nick:昵称,who:1}`` 解析为可点击的 @ 提及。
+    """
+    return "@{uin:%s,nick:%s,who:1}" % (uin, nick)
+
+
+def build_publish_params(target_qq: int, content: str,
+                         ugc_right: int = UGC_RIGHT_ALL) -> Dict[str, Any]:
+    """构建发表文本说说的请求参数。
+
+    ugc_right 为可见范围：1 所有人 / 4 QQ好友 / 16 部分好友可见 /
+    64 仅自己可见 / 128 部分好友不可见。@某人可用 :func:`format_mention` 拼进 content。
+    """
     params = {
         "syn_tweet_verson": 1,   # 说说版本
         "paramstr": 1,           # 参数
@@ -87,11 +109,41 @@ def build_publish_params(target_qq: int, content: str) -> Dict[str, Any]:
         "con": content,          # 说说内容
         "feedversion": 1,        # 说说版本
         "ver": 1,                # 版本
-        "ugc_right": 1,          # 权限
+        "ugc_right": ugc_right,  # 可见范围
         "to_sign": 0,            # 签名
         "code_version": 1,
         "format": "fs",
         "qzreferrer": f"https://user.qzone.qq.com/{target_qq}"
+    }
+    return params
+
+
+def build_edit_message_params(target_qq: int, tid: str, content: str,
+                              ugc_right: int = UGC_RIGHT_ALL,
+                              ugcright_id: str = "") -> Dict[str, Any]:
+    """构建编辑已发说说（emotion_cgi_update）的请求参数。
+
+    tid 为说说 id；ugcright_id 取自说说列表里该条的 ``ugcright_id``（可留空）。
+    """
+    params = {
+        "syn_tweet_verson": 1,
+        "tid": tid,              # 要编辑的说说 id
+        "paramstr": 1,
+        "pic_template": "",
+        "richtype": "",
+        "richval": "",
+        "special_url": "",
+        "subrichtype": "",
+        "con": content,          # 新内容
+        "feedversion": 1,
+        "ver": 1,
+        "ugc_right": ugc_right,
+        "to_sign": 0,
+        "ugcright_id": ugcright_id,
+        "hostuin": target_qq,
+        "code_version": 1,
+        "format": "fs",
+        "qzreferrer": f"https://user.qzone.qq.com/{target_qq}",
     }
     return params
 
@@ -383,6 +435,226 @@ def build_delete_photo_params(uin: int, album_id: str, lloc: str, sloc: str,
         "outCharset": "utf-8",
     }
     return params
+
+
+def build_delcomment_ugc_params(target_qq: int, uin: int, fid: str,
+                                comment_id: int) -> Dict[str, Any]:
+    """构建删除说说评论（emotion_cgi_delcomment_ugc）的参数。
+
+    comment_id 为要删除评论的 id（说说列表里评论的 ``id``，或发表评论返回的 ``data['id']``）。
+    """
+    topic_id = fid if "_" in str(fid) else f"{target_qq}_{fid}"
+    return {
+        "uin": uin,               # 操作QQ
+        "hostUin": target_qq,     # 说说主人QQ
+        "topicId": topic_id,      # {主人QQ}_{tid}
+        "commentId": comment_id,  # 要删除的评论ID
+        "commentUin": uin,        # 操作者QQ
+        "hostuin": target_qq,
+        "code_version": 1,
+        "format": "fs",
+        "qzreferrer": f"https://user.qzone.qq.com/{target_qq}",
+    }
+
+
+def build_delreply_ugc_params(target_qq: int, uin: int, fid: str, comment_id: int,
+                              reply_id: int) -> Dict[str, Any]:
+    """构建删除评论回复（emotion_cgi_delreply_ugc）的参数。
+
+    comment_id 为回复所属评论 id，reply_id 为要删除回复的 id。
+    """
+    topic_id = fid if "_" in str(fid) else f"{target_qq}_{fid}"
+    return {
+        "uin": uin,               # 操作QQ
+        "hostUin": target_qq,     # 说说主人QQ
+        "topicId": topic_id,      # {主人QQ}_{tid}
+        "commentId": comment_id,  # 回复所属评论ID
+        "replyId": reply_id,      # 要删除的回复ID
+        "commentUin": uin,        # 操作者QQ
+        "hostuin": target_qq,
+        "code_version": 1,
+        "format": "fs",
+        "qzreferrer": f"https://user.qzone.qq.com/{target_qq}",
+    }
+
+
+def build_comment_like_params(opuin: int, host_qq: int, tid: str,
+                              comment_id: int) -> Dict[str, Any]:
+    """构建点赞说说评论（internal_dolike_app）的参数。
+
+    curkey/unikey 指向评论对象 ``{host}_{tid}_{comment_id}``。
+    """
+    curkey = f"{host_qq}_{tid}_{comment_id}"
+    return {
+        "qzreferrer": f"https://user.qzone.qq.com/{opuin}",
+        "opuin": opuin,           # 操作者QQ
+        "unikey": curkey,         # 评论唯一标识
+        "curkey": curkey,         # 操作对象
+        "appid": 311,
+        "from": -100,
+        "typeid": 0,
+        "abstime": int(time.time()),
+        "fid": tid,
+        "active": 0,
+        "fupdate": 1,
+        "face": 0,
+        "format": "json",
+    }
+
+
+def build_message_board_params(host_qq: int, uin: int, g_tk: int,
+                               start: int = 0, num: int = 10) -> Dict[str, Any]:
+    """构建获取留言板留言列表（get_msgb）的请求参数（g_tk 用 p_skey 计算）。"""
+    return {
+        "uin": host_qq,           # 留言板主人QQ
+        "hostUin": host_qq,       # 留言板主人QQ
+        "hostword": 0,
+        "start": start,           # 起始位置
+        "s": num,                 # 拉取数量
+        "num": num,
+        "essence": 1,
+        "r": 0,
+        "format": "jsonp",
+        "inCharset": "utf-8",
+        "outCharset": "utf-8",
+        "ref": "qzone",
+        "g_tk": g_tk,
+    }
+
+
+def build_add_message_board_params(host_qq: int, uin: int, content: str) -> Dict[str, Any]:
+    """构建发表留言（add_msgb）的请求参数（g_tk 用 p_skey 计算）。"""
+    return {
+        "uin": uin,               # 操作QQ
+        "hostUin": host_qq,       # 留言板主人QQ
+        "format": "fs",
+        "iNotice": 1,
+        "inCharset": "utf-8",
+        "outCharset": "utf-8",
+        "ref": "qzone",
+        "json": 1,
+        "content": content,       # 留言内容
+        "signin": 1,
+        "qzreferrer": f"https://user.qzone.qq.com/{host_qq}",
+    }
+
+
+def build_del_message_board_params(host_qq: int, msg_id: int,
+                                   author_uin: int) -> Dict[str, Any]:
+    """构建删除留言（del_msgb）的请求参数（g_tk 用 p_skey 计算）。
+
+    msg_id 取自 :func:`build_message_board_params` 返回留言的 ``id``；
+    author_uin 为该留言留言者的 QQ（返回里的 ``uin``）。
+    """
+    return {
+        "hostUin": host_qq,       # 留言板主人QQ
+        "idList": msg_id,         # 要删除的留言ID（多个用逗号连接）
+        "uinList": author_uin,    # 对应留言者QQ（多个用逗号连接）
+        "format": "fs",
+        "iNotice": 1,
+        "inCharset": "utf-8",
+        "outCharset": "utf-8",
+        "ref": "qzone",
+        "json": 1,
+        "qzreferrer": f"https://user.qzone.qq.com/{host_qq}",
+    }
+
+
+def build_visitor_params(uin: int, g_tk: int, mask: int = 2,
+                         page: int = 1, count: int = 20) -> Dict[str, Any]:
+    """构建获取空间访客列表（cgi_get_visitor_simple）的请求参数（g_tk 用 p_skey 计算）。"""
+    return {
+        "uin": uin,               # 自己的QQ
+        "mask": mask,
+        "page": page,
+        "fupdate": 1,
+        "clear": 1,
+        "g_tk": g_tk,
+    }
+
+
+def build_blog_list_params(host_qq: int, uin: int, g_tk: int,
+                           pos: int = 0, num: int = 15) -> Dict[str, Any]:
+    """构建获取日志列表（get_abs）的请求参数（g_tk 用 p_skey 计算）。"""
+    return {
+        "hostUin": host_qq,       # 日志主人QQ
+        "uin": uin,               # 当前登录QQ
+        "blogType": 0,
+        "cateName": "",
+        "cateHex": "",
+        "statYear": "",
+        "reqInfo": 3,             # 3 才会返回日志明细 list
+        "pos": pos,               # 起始位置
+        "num": num,               # 拉取数量
+        "sortType": 0,
+        "source": 0,
+        "g_tk": g_tk,
+        "format": "jsonp",
+    }
+
+
+def build_blog_add_params(uin: int, title: str, content: str,
+                          right_type: int = 1, category: str = "个人日记"
+                          ) -> Dict[str, Any]:
+    """构建发表日志（add_blog）的请求参数（g_tk 用 p_skey 计算）。
+
+    right_type 权限：1 公开 / 2 QQ好友 / 3 指定人 / 4 仅自己。
+    """
+    return {
+        "cate": category,         # 日志分类
+        "title": title,          # 标题
+        "html": content,         # 正文HTML
+        "para": "",
+        "blogType": 0,
+        "lp_type": 0,
+        "lp_flag": 0,
+        "autograph": 1,
+        "topFlag": 0,
+        "feeds": 1,
+        "tweetFlag": 0,
+        "rightType": right_type,  # 可见范围
+        "uin": uin,
+        "hostUin": uin,
+        "iNotice": 1,
+        "inCharset": "utf-8",
+        "outCharset": "utf-8",
+        "format": "fs",
+        "ref": "qzone",
+        "json": 1,
+        "qzreferrer": f"https://user.qzone.qq.com/{uin}/infocenter",
+    }
+
+
+def build_blog_mod_params(uin: int, blog_id: int, title: str, content: str,
+                          right_type: int = 1, category: str = "个人日记"
+                          ) -> Dict[str, Any]:
+    """构建编辑日志（mod_blog）的请求参数（g_tk 用 p_skey 计算）。
+
+    blog_id 取自 :func:`build_blog_list_params` 返回列表里日志的 ``blogId``。
+    """
+    params = build_blog_add_params(uin, title, content, right_type, category)
+    params["blogId"] = blog_id    # 要编辑的日志ID
+    params["feeds"] = 0
+    return params
+
+
+def build_blog_del_params(uin: int, host_qq: int, blog_id: int) -> Dict[str, Any]:
+    """构建删除日志（del_blog）的请求参数（g_tk 用 p_skey 计算）。
+
+    blog_id 可传单个 id；多个用下划线连接的字符串传给 idList。
+    """
+    return {
+        "uin": uin,               # 当前登录QQ
+        "hostUin": host_qq,       # 日志主人QQ
+        "idList": str(blog_id),   # 日志ID（多个用 _ 连接）
+        "blogType": 0,
+        "incharset": "utf-8",
+        "outcharset": "utf-8",
+        "format": "fs",
+        "ref": "qzone",
+        "json": 1,
+        "qzreferrer": f"https://user.qzone.qq.com/{host_qq}/infocenter",
+    }
 
 
 # ---- 兼容别名（旧版本函数名） ----

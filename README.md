@@ -65,6 +65,14 @@ pip install qzone-api
 - ✅ 获取相册列表（自己的 / 对方公开的）
 - ✅ 获取相册内图片列表
 - ✅ 删除自己相册里的图片
+- ✅ 编辑已发说说
+- ✅ 选择说说可见范围（私密模式，含指定某人可见 / 不可见）
+- ✅ 说说内 @某人
+- ✅ 评论点赞
+- ✅ 删除评论 / 删除回复
+- ✅ 留言板：读取 / 发表 / 删除
+- ✅ 获取空间访客
+- ✅ 日志：列表 / 发表 / 编辑 / 删除
 
 ## 📚 快速开始
 
@@ -135,12 +143,28 @@ if __name__ == "__main__":
 | `list_albums` | 获取相册列表（自己的/对方公开的） | - |
 | `list_album_photos` | 获取相册内图片列表 | - |
 | `delete_photo` | 删除自己相册里的图片 | - |
+| `edit_message` | 编辑已发说说（可改可见范围，用 p_skey 版 g_tk） | - |
+| `like_comment` | 给说说下的评论点赞 | - |
+| `delete_comment` | 删除说说下的评论 | - |
+| `delete_reply` | 删除评论下的回复 | - |
+| `get_message_board` | 读取留言板留言列表 | - |
+| `post_message_board` | 发表留言 | - |
+| `delete_message_board` | 删除留言 | - |
+| `get_visitors` | 获取自己空间的访客列表 | - |
+| `list_blogs` | 获取日志列表 | - |
+| `publish_blog` | 发表日志 | - |
+| `edit_blog` | 编辑已发日志 | - |
+| `delete_blog` | 删除日志 | - |
 
-更详细的调用示例见 [example.md](example.md)，各版本的改动记录见 [changes.md](changes.md)。
+工具：`format_mention(qq, nick)` 生成 @某人的标记；`publish_message` / `edit_message` 的 `ugc_right` 控制可见范围，可用常量 `UGC_RIGHT_ALL / UGC_RIGHT_FRIEND / UGC_RIGHT_PART / UGC_RIGHT_SELF / UGC_RIGHT_EXCLUDE`。
+
+> `edit_message`、留言板、访客、日志、相册接口的 `g_tk` 都要用 `p_skey` 计算。
+
+详细的调用示例见 [example.md](example.md)，各版本的改动记录见 [changes.md](changes.md)。
 
 ## 🗓 历史更新记录
 
-完整的版本改动说明见 [changes.md](changes.md)，下面是简要记录：
+完整的版本改动说明见 [changes.md](changes.md)
 
 ## 🧩 项目结构
 

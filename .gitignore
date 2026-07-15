@@ -4,5 +4,5 @@ __pycache__/
 build/
 dist/
 .venv/
-.history
-.vscode
+.vscode/
+.history/

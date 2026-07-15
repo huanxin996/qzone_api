@@ -14,6 +14,16 @@ from .api_parms import (
     build_comment_ugc_params,
     build_reply_params,
     build_delete_photo_params,
+    build_edit_message_params,
+    build_delcomment_ugc_params,
+    build_delreply_ugc_params,
+    build_comment_like_params,
+    build_add_message_board_params,
+    build_del_message_board_params,
+    build_blog_add_params,
+    build_blog_mod_params,
+    build_blog_del_params,
+    UGC_RIGHT_ALL,
 )
 
 
@@ -31,13 +41,33 @@ class ApiFeed(ApiBase):
             return None
 
     async def publish_message(self, target_qq: int, content: str, cookies: str,
-                              g_tk: int) -> Optional[Union[Dict[str, Any], str]]:
-        """发表文本说说"""
+                              g_tk: int, ugc_right: int = UGC_RIGHT_ALL
+                              ) -> Optional[Union[Dict[str, Any], str]]:
+        """发表文本说说。
+
+        ugc_right 控制可见范围：1 所有人 / 4 QQ好友 / 16 部分好友可见 /
+        64 仅自己可见 / 128 部分好友不可见。@某人用 ``build_params.format_mention`` 拼进 content。
+        """
         try:
-            params = build_publish_params(target_qq, content)
+            params = build_publish_params(target_qq, content, ugc_right=ugc_right)
             return await self._make_post_request(url=f"{self.send_url}?&g_tk={g_tk}", data=params, cookies=cookies)
         except Exception as e:
             logger.error(f"发送说说失败: {e}")
+            return None
+
+    async def edit_message(self, target_qq: int, tid: str, content: str, cookies: str,
+                           g_tk: int, ugc_right: int = UGC_RIGHT_ALL,
+                           ugcright_id: str = "") -> Optional[Union[Dict[str, Any], str]]:
+        """编辑已发说说（emotion_cgi_update，g_tk 需用 p_skey 计算）。
+
+        tid 为说说 id；ugcright_id 取自说说列表里该条的 ``ugcright_id``（可留空）。
+        """
+        try:
+            params = build_edit_message_params(target_qq, tid, content,
+                                               ugc_right=ugc_right, ugcright_id=ugcright_id)
+            return await self._make_post_request(url=f"{self.update_url}?&g_tk={g_tk}", data=params, cookies=cookies)
+        except Exception as e:
+            logger.error(f"编辑说说失败: {e}")
             return None
 
     async def forward_message(self, target_qq: int, opuin: int, tid: str, content: str,
@@ -158,6 +188,107 @@ class ApiFeed(ApiBase):
                                                  data=params, cookies=cookies)
         except Exception as e:
             logger.error(f"删除相册图片失败: {e}")
+            return None
+
+    async def like_comment(self, opuin: int, host_qq: int, tid: str, comment_id: int,
+                           cookies: str, g_tk: int) -> Optional[Union[Dict[str, Any], str]]:
+        """点赞说说下的某条评论（internal_dolike_app）。
+
+        host_qq 为说说主人QQ，tid 为说说 id，comment_id 为评论 id。
+        """
+        try:
+            params = build_comment_like_params(opuin, host_qq, tid, comment_id)
+            return await self._make_post_request(url=f"{self.dolike_url}?&g_tk={g_tk}", data=params, cookies=cookies)
+        except Exception as e:
+            logger.error(f"点赞评论失败: {e}")
+            return None
+
+    async def delete_comment(self, target_qq: int, uin: int, fid: str, comment_id: int,
+                             cookies: str, g_tk: int) -> Optional[Union[Dict[str, Any], str]]:
+        """删除说说评论（emotion_cgi_delcomment_ugc，g_tk 用 p_skey 计算）。
+
+        comment_id 为评论 id（说说列表里评论的 ``id`` 或发表评论返回的 ``data['id']``）。
+        """
+        try:
+            params = build_delcomment_ugc_params(target_qq, uin, fid, comment_id)
+            return await self._make_post_request(url=f"{self.delcomment_ugc_url}?&g_tk={g_tk}", data=params, cookies=cookies)
+        except Exception as e:
+            logger.error(f"删除评论失败: {e}")
+            return None
+
+    async def delete_reply(self, target_qq: int, uin: int, fid: str, comment_id: int,
+                           reply_id: int, cookies: str, g_tk: int
+                           ) -> Optional[Union[Dict[str, Any], str]]:
+        """删除评论回复（emotion_cgi_delreply_ugc，g_tk 用 p_skey 计算）。"""
+        try:
+            params = build_delreply_ugc_params(target_qq, uin, fid, comment_id, reply_id)
+            return await self._make_post_request(url=f"{self.delreply_ugc_url}?&g_tk={g_tk}", data=params, cookies=cookies)
+        except Exception as e:
+            logger.error(f"删除回复失败: {e}")
+            return None
+
+    async def post_message_board(self, host_qq: int, uin: int, content: str,
+                                 cookies: str, g_tk: int
+                                 ) -> Optional[Union[Dict[str, Any], str]]:
+        """在留言板发表留言（add_msgb，g_tk 用 p_skey 计算）。"""
+        try:
+            params = build_add_message_board_params(host_qq, uin, content)
+            return await self._make_post_request(url=f"{self.msgb_add_url}?&g_tk={g_tk}", data=params, cookies=cookies)
+        except Exception as e:
+            logger.error(f"发表留言失败: {e}")
+            return None
+
+    async def delete_message_board(self, host_qq: int, msg_id: int, author_uin: int,
+                                   cookies: str, g_tk: int
+                                   ) -> Optional[Union[Dict[str, Any], str]]:
+        """删除留言板留言（del_msgb，g_tk 用 p_skey 计算）。
+
+        msg_id 取自 :meth:`get_message_board` 返回留言的 ``id``，author_uin 为该留言的 ``uin``。
+        """
+        try:
+            params = build_del_message_board_params(host_qq, msg_id, author_uin)
+            return await self._make_post_request(url=f"{self.msgb_del_url}?&g_tk={g_tk}", data=params, cookies=cookies)
+        except Exception as e:
+            logger.error(f"删除留言失败: {e}")
+            return None
+
+    async def publish_blog(self, uin: int, title: str, content: str, cookies: str,
+                           g_tk: int, right_type: int = 1, category: str = "个人日记"
+                           ) -> Optional[Union[Dict[str, Any], str]]:
+        """发表日志（add_blog，g_tk 用 p_skey 计算）。
+
+        content 为正文 HTML；right_type 权限：1 公开 / 2 QQ好友 / 3 指定 / 4 仅自己。
+        返回结果里含新日志的 ``blogid``。
+        """
+        try:
+            params = build_blog_add_params(uin, title, content, right_type, category)
+            return await self._make_post_request(url=f"{self.blog_add_url}?&g_tk={g_tk}", data=params, cookies=cookies)
+        except Exception as e:
+            logger.error(f"发表日志失败: {e}")
+            return None
+
+    async def edit_blog(self, uin: int, blog_id: int, title: str, content: str,
+                        cookies: str, g_tk: int, right_type: int = 1,
+                        category: str = "个人日记") -> Optional[Union[Dict[str, Any], str]]:
+        """编辑已发日志（mod_blog，g_tk 用 p_skey 计算）。
+
+        blog_id 取自 :meth:`list_blogs` 返回列表里日志的 ``blogId``。
+        """
+        try:
+            params = build_blog_mod_params(uin, blog_id, title, content, right_type, category)
+            return await self._make_post_request(url=f"{self.blog_mod_url}?&g_tk={g_tk}", data=params, cookies=cookies)
+        except Exception as e:
+            logger.error(f"编辑日志失败: {e}")
+            return None
+
+    async def delete_blog(self, uin: int, host_qq: int, blog_id: int, cookies: str,
+                          g_tk: int) -> Optional[Union[Dict[str, Any], str]]:
+        """删除日志（del_blog，g_tk 用 p_skey 计算）。"""
+        try:
+            params = build_blog_del_params(uin, host_qq, blog_id)
+            return await self._make_post_request(url=f"{self.blog_del_url}?&g_tk={g_tk}", data=params, cookies=cookies)
+        except Exception as e:
+            logger.error(f"删除日志失败: {e}")
             return None
 
     # ---- 兼容别名（旧版本方法名） ----
