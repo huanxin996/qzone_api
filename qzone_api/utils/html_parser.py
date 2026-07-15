@@ -145,7 +145,7 @@ def parse_feeds(content) -> Optional[Dict[str, Any]]:
     return {"status": "ok", "data": feeds}
 
 def parse_feed_data(data: dict) -> dict:
-    """解析指定用户获取到的说说数据，支持转发内容和多层转发解析"""
+    """解析指定用户获取到的说说数据，支持转发内容、评论、点赞"""
     try:
         feeds = []
         for msg in data.get('msglist', []):
@@ -155,9 +155,16 @@ def parse_feed_data(data: dict) -> dict:
                 'timestamp': msg.get('created_time', 0),
                 'content': msg.get('content', ''),
                 'images': [],
-                'repost': None
+                'videos': [],                                      # 视频列表
+                'repost': None,
+                # --- 互动数据 ---
+                'source': msg.get('source_name', ''),           # 来源设备
+                'comment_count': msg.get('cmtnum', 0),          # 评论总数
+                'comments': [],                                  # 评论列表
+                'likes': [],                                     # 点赞用户列表
             }
-            
+
+            # --- 转发内容 ---
             if 'rt_con' in msg:
                 feed['repost'] = {
                     'uni_key': msg.get('rt_tid', ''),
@@ -167,20 +174,59 @@ def parse_feed_data(data: dict) -> dict:
                     'time': msg.get('rt_createTime', ''),
                     'images': []
                 }
-                if 'pic' in msg:
-                    for pic in msg['pic']:
+                pics = msg.get('pic')
+                if pics:
+                    for pic in pics:
                         feed['repost']['images'].append({
                             'url': pic.get('url1', ''),
                             'width': pic.get('width', 0),
                             'height': pic.get('height', 0)
                         })
-            if 'pic' in msg and not msg.get('rt_con'):
-                for pic in msg['pic']:
+            pics = msg.get('pic')
+            if pics and not msg.get('rt_con'):
+                for pic in pics:
                     feed['images'].append({
                         'url': pic.get('url1', ''),
                         'width': pic.get('width', 0),
                         'height': pic.get('height', 0)
                     })
+
+            # --- 视频 ---
+            videos = msg.get('video')
+            if videos:
+                for vid in videos:
+                    feed['videos'].append({
+                        'url': vid.get('url3', ''),
+                        'cover': vid.get('url1', ''),
+                        'video_id': vid.get('video_id', ''),
+                        'duration_ms': vid.get('video_time', '0'),
+                        'width': vid.get('cover_width', 0),
+                        'height': vid.get('cover_height', 0),
+                    })
+
+            # --- 评论 ---
+            commentlist = msg.get('commentlist')
+            if commentlist:
+                for cmt in commentlist:
+                    feed['comments'].append({
+                        'uin': cmt.get('uin', ''),
+                        'name': cmt.get('name', ''),
+                        'content': cmt.get('content', ''),
+                        'time': cmt.get('createTime2', cmt.get('createTime', '')),
+                    })
+            # 如果 commentlist 为空但 cmtnum > 0，说明有评论但未返回详情
+            if not feed['comments'] and feed['comment_count'] > 0:
+                feed['comment_count'] = msg.get('cmtnum', 0)
+
+            # --- 点赞 ---
+            likeman = msg.get('likeman', [])
+            if likeman:
+                for like in likeman:
+                    feed['likes'].append({
+                        'uin': like.get('uin', ''),
+                        'name': like.get('name', ''),
+                    })
+
             feeds.append(feed)
         return {
             'status': 'ok',
